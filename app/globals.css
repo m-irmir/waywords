@@ -315,6 +315,32 @@ h1 {
   color: var(--color-button-text);
 }
 
+/* View leaderboard button */
+.leaderboard-btn {
+  margin-top: 0.75rem;
+  padding: 0.55rem 1.25rem;
+  background: transparent;
+  color: #666;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  width: 100%;
+  max-width: 420px;
+}
+
+.leaderboard-btn:hover:not(:disabled) {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.leaderboard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Loading */
 .loading-msg {
   font-size: 1rem;

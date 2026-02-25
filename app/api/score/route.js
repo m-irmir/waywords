@@ -18,6 +18,20 @@ async function isRealWord(word) {
   }
 }
 
+export async function GET() {
+  try {
+    const raw = await redis.zrange('leaderboard', 0, 9, { rev: true });
+    const leaderboard = raw.map((entry) => {
+      if (typeof entry === 'string') return JSON.parse(entry);
+      return entry;
+    });
+    return NextResponse.json({ leaderboard });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     const { words } = await request.json();

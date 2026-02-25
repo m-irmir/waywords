@@ -36,6 +36,21 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [invalidFields, setInvalidFields] = useState([]);
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
+  async function handleViewLeaderboard() {
+    setLeaderboardLoading(true);
+    try {
+      const res = await fetch('/api/score');
+      const data = await res.json();
+      setLeaderboard(data.leaderboard);
+    } catch {
+      // ignore
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }
 
   function handleChange(index, value) {
     const updated = [...words];
@@ -104,6 +119,35 @@ export default function Home() {
       map[`${pd.i}-${pd.j}`] = pd;
     }
     return map;
+  }
+
+  if (leaderboard) {
+    return (
+      <main>
+        <h1>Divergent Association Task</h1>
+        <p className="subtitle">Top 10 all-time scores</p>
+        <div className="results">
+          <div className="leaderboard-section">
+            <ol className="leaderboard-list">
+              {leaderboard.length === 0 ? (
+                <p className="subtitle">No scores yet — be the first!</p>
+              ) : (
+                leaderboard.map((entry, idx) => (
+                  <li key={idx} className="leaderboard-item">
+                    <span className="leaderboard-rank">#{idx + 1}</span>
+                    <span className="leaderboard-score">{entry.score}</span>
+                    <span className="leaderboard-words">{entry.words.join(', ')}</span>
+                  </li>
+                ))
+              )}
+            </ol>
+          </div>
+          <button className="play-again-btn" onClick={() => setLeaderboard(null)}>
+            Back
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (result) {
@@ -220,6 +264,10 @@ export default function Home() {
           {loading ? 'Scoring…' : 'Score My Words'}
         </button>
       </form>
+
+      <button className="leaderboard-btn" onClick={handleViewLeaderboard} disabled={leaderboardLoading}>
+        {leaderboardLoading ? 'Loading…' : 'View Leaderboard'}
+      </button>
 
       {loading && <p className="loading-msg">Fetching embeddings and computing distances…</p>}
     </main>
