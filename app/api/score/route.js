@@ -80,16 +80,17 @@ export async function POST(request) {
 
     // Compute overall score
     const avgDist = averageDistance(embeddings);
-    const finalScore = Math.round(scaleScore(avgDist));
+    const finalScore = parseFloat(scaleScore(avgDist).toFixed(2));
 
     // Write to Redis leaderboard — sort words for a canonical key so the same
     // word set (regardless of submission order) is always one entry.
     const canonicalWords = words.slice().sort();
     const member = JSON.stringify({ words: canonicalWords, score: finalScore });
-    const added = await redis.zadd('leaderboard', { nx: true }, { score: finalScore, member });
-    if (added === 0) {
+    const existing = await redis.zscore('leaderboard', member);
+    if (existing !== null) {
       return NextResponse.json({ error: 'This set of words is already on the leaderboard.' }, { status: 409 });
     }
+    await redis.zadd('leaderboard', { score: finalScore, member });
 
     // Read top 10
     const raw = await redis.zrange('leaderboard', 0, 9, { rev: true });
