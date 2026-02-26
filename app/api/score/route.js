@@ -34,7 +34,8 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { words } = await request.json();
+    const { words: rawWords } = await request.json();
+    const words = Array.isArray(rawWords) ? rawWords.map((w) => w.toLowerCase()) : rawWords;
 
     if (!Array.isArray(words) || words.length !== 7) {
       return NextResponse.json({ error: 'Exactly 7 words required.' }, { status: 400 });
@@ -81,9 +82,14 @@ export async function POST(request) {
     const avgDist = averageDistance(embeddings);
     const finalScore = Math.round(scaleScore(avgDist));
 
-    // Write to Redis leaderboard
-    const member = JSON.stringify({ words, score: finalScore, ts: Date.now() });
-    await redis.zadd('leaderboard', { score: finalScore, member });
+    // Write to Redis leaderboard — sort words for a canonical key so the same
+    // word set (regardless of submission order) is always one entry.
+    const canonicalWords = words.slice().sort();
+    const member = JSON.stringify({ words: canonicalWords, score: finalScore });
+    const added = await redis.zadd('leaderboard', { score: finalScore, member }, { nx: true });
+    if (added === 0) {
+      return NextResponse.json({ error: 'This set of words is already on the leaderboard.' }, { status: 409 });
+    }
 
     // Read top 10
     const raw = await redis.zrange('leaderboard', 0, 9, { rev: true });

@@ -47,13 +47,14 @@ export function averageDistance(embeddings) {
 }
 
 /**
- * Scale average cosine distance to a 0–100 score.
- * Formula: ((avgDist - 0.4) / 0.7) * 100, clamped to [0, 100].
- * Floor at d=0.4, ceiling at d=1.1.
+ * Scale average cosine distance to a 0–100 score using a sigmoid curve.
+ * center: avgDist that maps to score 50 (calibrated to known data points).
+ * steepness: controls how steeply scores spread around the center.
  * @param {number} avgDist
  * @returns {number}
  */
 export function scaleScore(avgDist) {
-  const raw = ((avgDist - 0.4) / 0.7) * 100;
-  return Math.max(0, Math.min(100, raw));
+  const center = 0.63;
+  const steepness = 10.5;
+  return 1 / (1 + Math.exp(-steepness * (avgDist - center))) * 100;
 }

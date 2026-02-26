@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 const WORD_COUNT = 7;
-const WORD_REGEX = /^[a-z]+$/;
+const WORD_REGEX = /^[a-zA-Z]+$/;
 
 const COLOR_STOPS = [
   { at: 0,   r: 239, g: 154, b: 154 }, // pale red
@@ -75,7 +75,7 @@ export default function Home() {
     }
     if (invalid.length > 0) {
       setInvalidFields(invalid);
-      setError('All words must be single lowercase letters only (a–z), no spaces or hyphens.');
+      setError('All words must be single words (a–z), no spaces or hyphens.');
       return;
     }
 
