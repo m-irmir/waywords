@@ -34,28 +34,51 @@ export async function GET(request) {
     for (const entry of entries) {
       const { words } = entry;
 
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: words,
-      });
+      try {
+        const response = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: words,
+        });
 
-      const sorted = response.data.slice().sort((a, b) => a.index - b.index);
-      const embeddings = sorted.map((item) => item.embedding);
+        const sorted = response.data.slice().sort((a, b) => a.index - b.index);
+        const embeddings = sorted.map((item) => item.embedding);
 
-      const avgDist = averageDistance(embeddings);
-      const newScore = Math.round(scaleScore(avgDist));
+        const avgDist = averageDistance(embeddings);
+        const newScore = Math.round(scaleScore(avgDist));
 
-      migrated.push({ words, oldScore: entry.score, newScore });
+        // Diagnostic fields to help debug if something looks wrong
+        const diag = {
+          dataLength: response.data.length,
+          embeddingLength: embeddings[0]?.length ?? null,
+          avgDist,
+          newScore,
+        };
+
+        if (isNaN(newScore)) {
+          migrated.push({ words, oldScore: entry.score, newScore: null, error: 'NaN score', diag });
+        } else {
+          migrated.push({ words, oldScore: entry.score, newScore, diag });
+        }
+      } catch (entryErr) {
+        migrated.push({ words, oldScore: entry.score, newScore: null, error: entryErr.message });
+      }
     }
 
-    // Clear and rebuild leaderboard with new scores
+    // Clear and rebuild leaderboard, skipping any entries that failed to score
     await redis.del('leaderboard');
-    for (const { words, newScore } of migrated) {
-      const member = JSON.stringify({ words, score: newScore });
-      await redis.zadd('leaderboard', { score: newScore, member });
+    for (const entry of migrated) {
+      if (entry.newScore != null) {
+        const member = JSON.stringify({ words: entry.words, score: entry.newScore });
+        await redis.zadd('leaderboard', { score: entry.newScore, member });
+      }
     }
 
-    return NextResponse.json({ message: `Migrated ${migrated.length} entries.`, migrated });
+    const succeeded = migrated.filter((e) => e.newScore != null).length;
+    const failed = migrated.length - succeeded;
+    return NextResponse.json({
+      message: `Migrated ${succeeded}/${migrated.length} entries.${failed ? ` ${failed} failed — see details below.` : ''}`,
+      migrated,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Migration failed: ' + err.message }, { status: 500 });
