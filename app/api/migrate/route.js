@@ -44,7 +44,7 @@ export async function GET(request) {
         const embeddings = sorted.map((item) => item.embedding);
 
         const avgDist = averageDistance(embeddings);
-        const newScore = Math.round(scaleScore(avgDist));
+        const newScore = parseFloat(scaleScore(avgDist).toFixed(2));
 
         // Diagnostic fields to help debug if something looks wrong
         const diag = {
