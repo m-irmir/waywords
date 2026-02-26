@@ -39,17 +39,30 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = join(__dirname, '..', '.env.local');
 for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
   const eq = line.indexOf('=');
-  if (eq > 0) process.env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  if (eq > 0) {
+    const key = line.slice(0, eq).trim();
+    const val = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    process.env[key] = val;
+  }
 }
 
-import OpenAI from 'openai';
-import { Redis } from '@upstash/redis';
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+async function redisCommand(...args) {
+  const res = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${REDIS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
 
 function cosineSimilarity(a, b) {
   let dot = 0, normA = 0, normB = 0;
@@ -94,12 +107,18 @@ for (const words of ENTRIES) {
   }
 
   try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: words,
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: words }),
     });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message);
 
-    const embeddings = response.data
+    const embeddings = json.data
       .slice()
       .sort((a, b) => a.index - b.index)
       .map((item) => item.embedding);
@@ -108,13 +127,13 @@ for (const words of ENTRIES) {
     const canonicalWords = words.slice().sort();
     const member = JSON.stringify({ words: canonicalWords, score });
 
-    const existing = await redis.zscore('leaderboard', member);
+    const existing = await redisCommand('ZSCORE', 'leaderboard', member);
     if (existing !== null) {
       console.log(`SKIP  [${score}] ${words.join(', ')} — already on leaderboard`);
       continue;
     }
 
-    await redis.zadd('leaderboard', { score, member });
+    await redisCommand('ZADD', 'leaderboard', score, member);
     console.log(`OK    [${score}] ${words.join(', ')}`);
     succeeded++;
   } catch (err) {
