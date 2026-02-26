@@ -86,7 +86,7 @@ export async function POST(request) {
     // word set (regardless of submission order) is always one entry.
     const canonicalWords = words.slice().sort();
     const member = JSON.stringify({ words: canonicalWords, score: finalScore });
-    const added = await redis.zadd('leaderboard', { score: finalScore, member }, { nx: true });
+    const added = await redis.zadd('leaderboard', { nx: true }, { score: finalScore, member });
     if (added === 0) {
       return NextResponse.json({ error: 'This set of words is already on the leaderboard.' }, { status: 409 });
     }
