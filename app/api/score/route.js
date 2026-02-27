@@ -20,7 +20,7 @@ async function isRealWord(word) {
 
 export async function GET() {
   try {
-    const raw = await redis.zrange('leaderboard', 0, 9, { rev: true });
+    const raw = await redis.zrange('leaderboard', 0, -1, { rev: true });
     const leaderboard = raw.map((entry) => {
       if (typeof entry === 'string') return JSON.parse(entry);
       return entry;

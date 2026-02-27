@@ -125,7 +125,7 @@ export default function Home() {
     return (
       <main>
         <h1>Divergent Association Task</h1>
-        <p className="subtitle">Top 10 all-time scores</p>
+        <p className="subtitle">All-time scores ({leaderboard.length})</p>
         <div className="results">
           <div className="leaderboard-section">
             <ol className="leaderboard-list">
